@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+#map {
+    height: 100vh;
+    margin: 0;
+}
+body{
+    margin:0;
+}
+</style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let map = L.map('map').setView([14.4474,79.9968],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let markers = [];
+
+function updateMarkers() {
+    fetch('/all_locations')
+    .then(res => res.json())
+    .then(data => {
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+
+        data.forEach(user => {
+            let marker = L.marker([user.lat, user.lon])
+                .addTo(map)
+                .bindPopup(user.name);
+            markers.push(marker);
+        });
+    })
+    .catch(()=>{});
+}
+
+updateMarkers();
+setInterval(updateMarkers, 5000);
+</script>
+
+</body>
+</html>
