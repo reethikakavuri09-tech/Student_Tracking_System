@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Tracking</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+font-family:Arial;
+background:#0f172a;
+color:white;
+text-align:center;
+padding:24px;
+margin:0;
+}
+.box{
+max-width:420px;
+margin:30px auto;
+background:#1e293b;
+padding:24px;
+border-radius:16px;
+box-shadow:0 10px 28px rgba(0,0,0,0.35);
+}
+h2{
+margin-top:0;
+color:#00e5ff;
+}
+.status{
+font-size:14px;
+line-height:1.6;
+margin-top:14px;
+min-height:90px;
+white-space:pre-line;
+}
+.meta{
+margin-top:14px;
+font-size:13px;
+opacity:0.9;
+line-height:1.6;
+text-align:left;
+}
+button{
+padding:12px 16px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+font-weight:bold;
+margin-top:14px;
+}
+.logout{
+background:#ef4444;
+color:white;
+width:100%;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="box">
+<h2>Tracking Session</h2>
+<p><b>Name:</b> {{ name }}</p>
+<p><b>Mobile:</b> {{ mobile }}</p>
+
+<p id="status" class="status">Initializing...</p>
+
+<div class="meta" id="meta"></div>
+
+<button class="logout" onclick="logoutStudent()">Logout</button>
+</div>
+
+<script>
+let alertShown = false;
+let stopped = false;
+let watchId = null;
+const studentName = "{{ name }}";
+const studentMobile = "{{ mobile }}";
+
+function playAlertSound(){
+  let audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
+  audio.volume = 0.1;
+
+  audio.play().catch(()=>{});
+
+  let vol = 0.1;
+  let interval = setInterval(() => {
+    if(vol < 1){
+      vol += 0.1;
+      audio.volume = Math.min(vol, 1);
+    }else{
+      clearInterval(interval);
+    }
+  }, 300);
+}
+
+async function refreshStudentStatus(){
+  try{
+    let res = await fetch('/student_status?mobile=' + encodeURIComponent(studentMobile));
+    let data = await res.json();
+
+    if(!data.success){
+      document.getElementById("status").innerText = "Unable to fetch student status.";
+      return;
+    }
+
+    let statusText = "";
+
+    if(data.approval_status === "rejected"){
+      statusText =
+        "❌ Permission Rejected by Admin\n" +
+        "Attendance remains stopped.\n" +
+        "Contact admin.";
+    }else if(data.campus_status === "outside" && data.approval_status === "pending" && data.attendance_stopped){
+      statusText =
+        "⚠️ You are outside the campus.\n" +
+        "Login hours stopped.\n" +
+        "Admin approval is required to resume.";
+    }else if(data.approval_status === "pending"){
+      statusText =
+        "⏳ Waiting for admin approval...\n" +
+        "Your login time is recorded.";
+    }else if(data.live_status === "logged_out"){
+      statusText = "🔴 You are logged out.";
+    }else if(data.approval_status === "approved"){
+      statusText =
+        "✅ Permission Granted\n" +
+        "Attendance tracking resumed.\n\n" +
+        "Attendance: " + data.attendance_status + "\n" +
+        data.attendance_note;
+    }
+
+    document.getElementById("status").innerText = statusText;
+
+    document.getElementById("meta").innerHTML =
+      "<b>Campus Status:</b> " + data.campus_status + "<br>" +
+      "<b>Login Time:</b> " + data.login_time + "<br>" +
+      "<b>Approved Time:</b> " + data.approved_time + "<br>" +
+      "<b>Last Active:</b> " + data.last_active + "<br>" +
+      "<b>Logout Time:</b> " + data.logout_time + "<br>" +
+      "<b>Live Status:</b> " + data.live_status + "<br>" +
+      "<b>Total Login Hours:</b> " + data.total_hours;
+
+    if(data.campus_status === "inside" && data.approval_status !== "rejected"){
+      alertShown = false;
+    }
+
+  }catch(e){
+    document.getElementById("status").innerText = "Server connection issue.";
+  }
+}
+
+async function sendLocation(lat, lon){
+  if(stopped) return;
+
+  let coords = lat + "," + lon;
+
+  try{
+    let res = await fetch('/auto_update',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:"name="+encodeURIComponent(studentName)+
+           "&mobile="+encodeURIComponent(studentMobile)+
+           "&location="+encodeURIComponent(coords)
+    });
+
+    let data = await res.json();
+
+    if(data.alert && !alertShown){
+      alertShown = true;
+
+      alert(
+        "⚠ You are outside the campus.\n\n" +
+        "Attendance tracking is paused.\n" +
+        "Please get admin approval to continue."
+      );
+
+      playAlertSound();
+    }
+
+    await refreshStudentStatus();
+  }catch(e){
+    document.getElementById("status").innerText = "Unable to send location.";
+  }
+}
+
+function startLiveTracking(){
+  if(!navigator.geolocation){
+    document.getElementById("status").innerText = "Geolocation is not supported.";
+    return;
+  }
+
+  watchId = navigator.geolocation.watchPosition(
+    function(pos){
+      let lat = pos.coords.latitude;
+      let lon = pos.coords.longitude;
+      sendLocation(lat, lon);
+    },
+    function(){
+      document.getElementById("status").innerText = "❌ Location permission required.";
+    },
+    {
+      enableHighAccuracy:true,
+      timeout:10000,
+      maximumAge:0
+    }
+  );
+}
+
+async function logoutStudent(){
+  try{
+    let res = await fetch('/student_logout',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:"mobile="+encodeURIComponent(studentMobile)
+    });
+
+    let data = await res.json();
+    if(data.success){
+      stopped = true;
+      if(watchId !== null){
+        navigator.geolocation.clearWatch(watchId);
+      }
+      localStorage.removeItem("studentName");
+      localStorage.removeItem("studentMobile");
+      alert("Logged out successfully");
+      window.location.href = "/student";
+    }
+  }catch(e){
+    alert("Unable to logout right now.");
+  }
+}
+
+refreshStudentStatus();
+startLiveTracking();
+setInterval(refreshStudentStatus, 7000);
+</script>
+
+</body>
+</html>
