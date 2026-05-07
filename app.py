@@ -1,6 +1,7 @@
 import math
 import csv
 import re
+import os
 import sqlite3
 from flask import Flask, render_template, request, redirect, session, jsonify, send_file
 from database import init_db, get_students, delete_student
@@ -104,11 +105,13 @@ def get_display_status(row):
     return "logged_out"
 
 
+# Root URL opens admin side
 @app.route("/")
 def home():
-    return redirect("/student")
+    return redirect("/admin")
 
 
+# Student page URL
 @app.route("/student")
 def student():
     return render_template("student.html")
@@ -979,4 +982,5 @@ def logout():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
