@@ -6,6 +6,7 @@ import sqlite3
 from flask import Flask, render_template, request, redirect, session, jsonify, send_file
 from database import init_db, get_students, delete_student
 from datetime import datetime, time as dtime
+from zoneinfo import ZoneInfo
 from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
@@ -20,12 +21,14 @@ COLLEGE_LAT = 14.4225626
 COLLEGE_LON = 80.0037466
 RADIUS = 300
 
-ONLINE_SECONDS = 600
-INACTIVE_SECONDS = 3600
 OUTSIDE_BUFFER_SECONDS = 300
 
 ATTENDANCE_START_TIME = dtime(9, 0)
 ATTENDANCE_END_TIME = dtime(18, 0)
+
+
+def ist_now():
+    return datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
 
 
 def get_conn():
@@ -35,7 +38,7 @@ def get_conn():
 
 
 def now_str():
-    return datetime.now().strftime("%d %b %Y - %I:%M:%S %p")
+    return ist_now().strftime("%d %b %Y - %I:%M:%S %p")
 
 
 def parse_dt(value):
@@ -67,7 +70,7 @@ def is_inside(lat, lon):
 
 
 def login_allowed_now():
-    current = datetime.now().time()
+    current = ist_now().time()
     return dtime(9, 0) <= current <= dtime(13, 0)
 
 
@@ -105,13 +108,11 @@ def get_display_status(row):
     return "logged_out"
 
 
-# Root URL opens admin side
 @app.route("/")
 def home():
     return redirect("/admin")
 
 
-# Student page URL
 @app.route("/student")
 def student():
     return render_template("student.html")
@@ -184,7 +185,7 @@ def student_login():
             (name, "Request Submitted", now)
         )
     else:
-        student = mobile_row if mobile_row else name_row
+        student_data = mobile_row if mobile_row else name_row
 
         cur.execute("""
             UPDATE students
@@ -194,7 +195,7 @@ def student_login():
                 campus_status=?, outside_alert_sent=0,
                 valid_seconds=0, outside_since=NULL, attendance_stopped=0
             WHERE id=?
-        """, (name, mobile, location, now, now, now, campus_status, student["id"]))
+        """, (name, mobile, location, now, now, now, campus_status, student_data["id"]))
 
         cur.execute(
             "INSERT INTO logs (name, action, time) VALUES (?, ?, ?)",
@@ -306,7 +307,7 @@ def student_logout():
 
     last_active_dt = parse_dt(row["last_active"])
     now_dt = parse_dt(now)
-    current_time = datetime.now().time()
+    current_time = ist_now().time()
     within_time = ATTENDANCE_START_TIME <= current_time <= ATTENDANCE_END_TIME
 
     if (
@@ -354,6 +355,7 @@ def login():
         if username == "Admin" and password == "1234":
             session["user"] = "Admin"
             return redirect("/dashboard")
+
         return render_template("login.html", error="Invalid Credentials")
 
     return render_template("login.html")
@@ -492,6 +494,7 @@ def dashboard_data():
 
     conn = get_conn()
     cur = conn.cursor()
+
     cur.execute("""
         SELECT id, name, mobile, location, time, status, login_time, last_active,
                logout_time, is_logged_in, approved_time, campus_status,
@@ -590,6 +593,7 @@ def auto_update():
 
     last_active_dt = parse_dt(row["last_active"])
     delta_seconds = 0
+
     if last_active_dt and now_dt:
         delta_seconds = max(0, (now_dt - last_active_dt).total_seconds())
 
@@ -599,7 +603,7 @@ def auto_update():
     current_status = row["status"]
     alert = False
 
-    current_time = datetime.now().time()
+    current_time = ist_now().time()
     within_time = ATTENDANCE_START_TIME <= current_time <= ATTENDANCE_END_TIME
 
     if row["is_logged_in"] == 1 and current_status != "rejected":
@@ -615,6 +619,7 @@ def auto_update():
                     else:
                         outside_since_dt = parse_dt(outside_since)
                         outside_age = 0
+
                         if outside_since_dt and now_dt:
                             outside_age = max(0, (now_dt - outside_since_dt).total_seconds())
 
@@ -812,6 +817,7 @@ def delete():
         return redirect("/admin")
 
     name = request.form.get("name", "").strip()
+
     if name:
         delete_student(name)
         permissions.pop(name, None)
@@ -837,6 +843,7 @@ def all_locations():
 
     for row in data:
         loc = row["location"]
+
         if not loc or loc == "0,0" or "," not in loc:
             continue
 
@@ -893,6 +900,7 @@ def download_csv():
             login_date = "-"
             login_clock = "-"
             login_dt = parse_dt(login_time)
+
             if login_dt:
                 login_date = login_dt.strftime("%d-%m-%Y")
                 login_clock = login_dt.strftime("%I:%M:%S %p")
@@ -938,6 +946,7 @@ def download_pdf():
             y = 800
 
     c.save()
+
     return send_file(file, as_attachment=True)
 
 
@@ -960,18 +969,18 @@ def logs(name):
         FROM students
         WHERE name=?
     """, (name,))
-    student = cur.fetchone()
+    student_data = cur.fetchone()
 
     conn.close()
 
     return jsonify({
         "logs": [[row["time"], row["action"]] for row in data],
-        "login_time": student["login_time"] if student else "-",
-        "last_active": student["last_active"] if student else "-",
-        "logout_time": student["logout_time"] if student else "-",
-        "approved_time": student["approved_time"] if student else "-",
-        "approval_status": student["status"] if student else "-",
-        "campus_status": student["campus_status"] if student else "-"
+        "login_time": student_data["login_time"] if student_data else "-",
+        "last_active": student_data["last_active"] if student_data else "-",
+        "logout_time": student_data["logout_time"] if student_data else "-",
+        "approved_time": student_data["approved_time"] if student_data else "-",
+        "approval_status": student_data["status"] if student_data else "-",
+        "campus_status": student_data["campus_status"] if student_data else "-"
     })
 
 
