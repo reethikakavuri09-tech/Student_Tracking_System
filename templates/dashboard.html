@@ -274,7 +274,12 @@ margin-top:10px;
 </h3>
 
 <div class="permissionWrap">
-{% if student.status == "outside" and student.approval_status != "logged_out" %}
+{% if student.approval_status == "pending" %}
+<div class="permissionWarn" onclick="toggleActions('{{ student.name }}')">
+⏳ Approval Required
+</div>
+
+{% elif student.status == "outside" and student.approval_status != "logged_out" %}
 <div class="permissionWarn" onclick="toggleActions('{{ student.name }}')">
 🚨 Permission Required
 </div>
@@ -455,14 +460,22 @@ data.students.forEach(s=>{
 
   statusBadge.innerHTML = getStatusHtml(s.status, s.approval_status);
 
-  permissionWrap.innerHTML = "";
-  if(s.status === "outside" && s.approval_status !== "logged_out"){
-    permissionWrap.innerHTML =
-      `<div class="permissionWarn"
-        onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
-        🚨 Permission Required
-       </div>`;
-  }
+ permissionWrap.innerHTML = "";
+
+if(s.approval_status === "pending"){
+  permissionWrap.innerHTML =
+    `<div class="permissionWarn"
+      onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
+      ⏳ Approval Required
+     </div>`;
+
+}else if(s.status === "outside" && s.approval_status !== "logged_out"){
+  permissionWrap.innerHTML =
+    `<div class="permissionWarn"
+      onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
+      🚨 Permission Required
+     </div>`;
+}
 
   studentLocation.innerText = "📍 " + s.location;
   studentLocation.setAttribute("onclick", `showOnMap('${String(s.location).replace(/'/g,"\\'")}','${String(s.name).replace(/'/g,"\\'")}')`);
@@ -480,14 +493,17 @@ data.students.forEach(s=>{
   let actionWrap = card.querySelector('.actionWrap');
   actionWrap.id = "actions-" + s.name;
 
-  if((s.status === "outside" && s.approval_status !== "logged_out") || s.approval_status === "pending"){
-    actionWrap.innerHTML =
-      `<button onclick="approveStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#f59e0b;">Approve / Resume</button>
-       <button onclick="rejectStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#e43232;">Reject</button>`;
-  }else{
-    actionWrap.innerHTML = "";
-    actionWrap.style.display = "none";
-  }
+if((s.status === "outside" && s.approval_status !== "logged_out") || s.approval_status === "pending"){
+  actionWrap.innerHTML =
+    `<button onclick="approveStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#f59e0b;">Approve / Resume</button>
+     <button onclick="rejectStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#e43232;">Reject</button>`;
+
+  actionWrap.style.display = "block";
+
+}else{
+  actionWrap.innerHTML = "";
+  actionWrap.style.display = "none";
+}
 });
 })
 .catch(()=>{});
