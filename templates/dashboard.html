@@ -265,6 +265,9 @@ margin-top:10px;
 <span style="color:#fb923c;">● Out of Campus</span>
 {% elif student.approval_status == "rejected" %}
 <span style="color:#e43232;">● Rejected</span>
+{% elif student.status == "pending" and student.campus_status == "inside" %}
+<span style="color:#0fd357;">● Inside Campus</span>
+
 {% elif student.status == "pending" %}
 <span style="color:#f59e0b;">● Pending</span>
 {% else %}
