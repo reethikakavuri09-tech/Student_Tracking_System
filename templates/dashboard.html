@@ -267,7 +267,6 @@ margin-top:10px;
 <span style="color:#e43232;">● Rejected</span>
 {% elif student.status == "pending" and student.campus_status == "inside" %}
 <span style="color:#0fd357;">● Inside Campus</span>
-
 {% elif student.status == "pending" %}
 <span style="color:#f59e0b;">● Pending</span>
 {% else %}
@@ -277,12 +276,7 @@ margin-top:10px;
 </h3>
 
 <div class="permissionWrap">
-{% if student.approval_status == "pending" %}
-<div class="permissionWarn" onclick="toggleActions('{{ student.name }}')">
-⏳ Approval Required
-</div>
-
-{% elif student.status == "outside" and student.approval_status != "logged_out" %}
+{% if student.status == "outside" and student.approval_status != "logged_out" %}
 <div class="permissionWarn" onclick="toggleActions('{{ student.name }}')">
 🚨 Permission Required
 </div>
@@ -417,11 +411,12 @@ studentMarkers.push(marker);
 .catch(()=>{});
 }
 
-function getStatusHtml(status, approvalStatus){
+function getStatusHtml(status, approvalStatus, campusStatus){
 if(approvalStatus === "logged_out") return '<span style="color:#e43232;">● Logged Out</span>';
 if(approvalStatus === "rejected") return '<span style="color:#e43232;">● Rejected</span>';
 if(status === "active") return '<span style="color:#0fd357;">● Active</span>';
 if(status === "outside") return '<span style="color:#fb923c;">● Out of Campus</span>';
+if(status === "pending" && campusStatus === "inside") return '<span style="color:#0fd357;">● Inside Campus</span>';
 if(status === "pending") return '<span style="color:#f59e0b;">● Pending</span>';
 return '<span style="color:#e43232;">● Logged Out</span>';
 }
@@ -461,24 +456,17 @@ data.students.forEach(s=>{
   let studentApproved = card.querySelector('.studentApproved');
   let permissionWrap = card.querySelector('.permissionWrap');
 
-  statusBadge.innerHTML = getStatusHtml(s.status, s.approval_status);
+  statusBadge.innerHTML = getStatusHtml(s.status, s.approval_status, s.campus_status);
 
- permissionWrap.innerHTML = "";
+  permissionWrap.innerHTML = "";
 
-if(s.approval_status === "pending"){
-  permissionWrap.innerHTML =
-    `<div class="permissionWarn"
-      onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
-      ⏳ Approval Required
-     </div>`;
-
-}else if(s.status === "outside" && s.approval_status !== "logged_out"){
-  permissionWrap.innerHTML =
-    `<div class="permissionWarn"
-      onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
-      🚨 Permission Required
-     </div>`;
-}
+  if(s.status === "outside" && s.approval_status !== "logged_out"){
+    permissionWrap.innerHTML =
+      `<div class="permissionWarn"
+        onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
+        🚨 Permission Required
+       </div>`;
+  }
 
   studentLocation.innerText = "📍 " + s.location;
   studentLocation.setAttribute("onclick", `showOnMap('${String(s.location).replace(/'/g,"\\'")}','${String(s.name).replace(/'/g,"\\'")}')`);
@@ -496,17 +484,14 @@ if(s.approval_status === "pending"){
   let actionWrap = card.querySelector('.actionWrap');
   actionWrap.id = "actions-" + s.name;
 
-if((s.status === "outside" && s.approval_status !== "logged_out") || s.approval_status === "pending"){
-  actionWrap.innerHTML =
-    `<button onclick="approveStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#f59e0b;">Approve / Resume</button>
-     <button onclick="rejectStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#e43232;">Reject</button>`;
-
-  actionWrap.style.display = "block";
-
-}else{
-  actionWrap.innerHTML = "";
-  actionWrap.style.display = "none";
-}
+  if(s.status === "outside" && s.approval_status !== "logged_out"){
+    actionWrap.innerHTML =
+      `<button onclick="approveStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#f59e0b;">Approve / Resume</button>
+       <button onclick="rejectStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#e43232;">Reject</button>`;
+  }else{
+    actionWrap.innerHTML = "";
+    actionWrap.style.display = "none";
+  }
 });
 })
 .catch(()=>{});
@@ -549,6 +534,19 @@ extra.forEach(text=>{
   li.innerText=text;
   logs.appendChild(li);
 });
+
+if(data.approval_status === "pending"){
+let approveLi=document.createElement("li");
+approveLi.innerHTML =
+`<br>
+<button onclick="approveStudent('${name}')" style="background:#f59e0b;">
+Approve / Resume
+</button>
+<button onclick="rejectStudent('${name}')" style="background:#e43232;">
+Reject
+</button>`;
+logs.appendChild(approveLi);
+}
 
 if(data.logs.length===0){
 let li=document.createElement("li");
