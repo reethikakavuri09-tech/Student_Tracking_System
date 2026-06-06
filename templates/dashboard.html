@@ -452,10 +452,7 @@ if(!data.success) return;
 document.getElementById("totalCount").innerText = data.total;
 document.getElementById("liveCount").innerText = data.live;
 
-if(data.total !== lastStudentCount){
-  location.reload();
-  return;
-}
+lastStudentCount = data.total;
 
 (data.alerts || []).forEach(msg=>{
   if(!outsideAlertsShown.has(msg)){
