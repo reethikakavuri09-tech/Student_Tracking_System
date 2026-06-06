@@ -213,10 +213,12 @@ margin-top:10px;
 {% for student in students %}
 <li onclick="selectStudent(this,'{{ student.name }}')">
 {{ student.name }}
-{% if student.status == "outside" and student.approval_status != "logged_out" %}
+{% if student.campus_status == "outside" and student.approval_status != "logged_out" %}
 <span style="color:#ff4d4d;"> 🚨</span>
-{% elif student.approval_status == "pending" %}
-<span style="color:orange;"> ⏳</span>
+
+{% elif student.campus_status == "inside" and student.approval_status == "pending" %}
+<span style="color:#f59e0b;"> ⏳</span>
+
 {% elif student.approval_status == "rejected" %}
 <span style="color:#e43232;"> ❌</span>
 {% endif %}
@@ -258,17 +260,20 @@ margin-top:10px;
 {{ student.name }}
 <span class="statusBadge">
 {% if student.approval_status == "logged_out" %}
-<span style="color:#e43232;">● Logged Out</span>
-{% elif student.status == "active" %}
-<span style="color:#0fd357;">● Active</span>
-{% elif student.status == "outside" %}
-<span style="color:#fb923c;">● Out of Campus</span>
+<span style="color:#ef2e2e;">● Logged Out</span>
+
 {% elif student.approval_status == "rejected" %}
-<span style="color:#e43232;">● Rejected</span>
-{% elif student.status == "pending" and student.campus_status == "inside" %}
-<span style="color:#0fd357;">● Inside Campus</span>
-{% elif student.status == "pending" %}
-<span style="color:#f59e0b;">● Pending</span>
+<span style="color:#f12222;">● Rejected</span>
+
+{% elif student.campus_status == "outside" %}
+<span style="color:#c43d2b;">● Out of Campus</span>
+
+{% elif student.campus_status == "inside" and student.approval_status == "approved" %}
+<span style="color:#05ba47;">● Inside Campus</span>
+
+{% elif student.campus_status == "inside" and student.approval_status == "pending" %}
+<span style="color:#ca8714;">● Inside Campus</span>
+
 {% else %}
 <span style="color:#e43232;">● Logged Out</span>
 {% endif %}
@@ -276,11 +281,18 @@ margin-top:10px;
 </h3>
 
 <div class="permissionWrap">
-{% if student.status == "outside" and student.approval_status != "logged_out" %}
+
+{% if student.approval_status == "pending" %}
+<div class="permissionWarn" onclick="toggleActions('{{ student.name }}')">
+⏳ Approval Required
+</div>
+
+{% elif student.status == "outside" and student.approval_status != "logged_out" %}
 <div class="permissionWarn" onclick="toggleActions('{{ student.name }}')">
 🚨 Permission Required
 </div>
 {% endif %}
+
 </div>
 
 <div class="clickable studentLocation"
@@ -412,12 +424,22 @@ studentMarkers.push(marker);
 }
 
 function getStatusHtml(status, approvalStatus, campusStatus){
-if(approvalStatus === "logged_out") return '<span style="color:#e43232;">● Logged Out</span>';
-if(approvalStatus === "rejected") return '<span style="color:#e43232;">● Rejected</span>';
-if(status === "active") return '<span style="color:#0fd357;">● Active</span>';
-if(status === "outside") return '<span style="color:#fb923c;">● Out of Campus</span>';
-if(status === "pending" && campusStatus === "inside") return '<span style="color:#0fd357;">● Inside Campus</span>';
-if(status === "pending") return '<span style="color:#f59e0b;">● Pending</span>';
+
+if(approvalStatus === "logged_out")
+return '<span style="color:#e43232;">● Logged Out</span>';
+
+if(approvalStatus === "rejected")
+return '<span style="color:#e43232;">● Rejected</span>';
+
+if(campusStatus === "outside")
+return '<span style="color:#fb923c;">● Out of Campus</span>';
+
+if(campusStatus === "inside" && approvalStatus === "approved")
+return '<span style="color:#0fd357;">● Inside Campus</span>';
+
+if(campusStatus === "inside" && approvalStatus === "pending")
+return '<span style="color:#f59e0b;">● Inside Campus</span>';
+
 return '<span style="color:#e43232;">● Logged Out</span>';
 }
 
@@ -460,13 +482,23 @@ data.students.forEach(s=>{
 
   permissionWrap.innerHTML = "";
 
-  if(s.status === "outside" && s.approval_status !== "logged_out"){
-    permissionWrap.innerHTML =
-      `<div class="permissionWarn"
-        onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
-        🚨 Permission Required
-       </div>`;
-  }
+if(s.approval_status === "pending"){
+
+permissionWrap.innerHTML =
+`<div class="permissionWarn"
+onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
+⏳ Approval Required
+</div>`;
+
+}
+else if(s.status === "outside" && s.approval_status !== "logged_out"){
+
+permissionWrap.innerHTML =
+`<div class="permissionWarn"
+onclick="toggleActions('${String(s.name).replace(/'/g,"\\'")}')">
+🚨 Permission Required
+</div>`;
+}
 
   studentLocation.innerText = "📍 " + s.location;
   studentLocation.setAttribute("onclick", `showOnMap('${String(s.location).replace(/'/g,"\\'")}','${String(s.name).replace(/'/g,"\\'")}')`);
@@ -484,7 +516,10 @@ data.students.forEach(s=>{
   let actionWrap = card.querySelector('.actionWrap');
   actionWrap.id = "actions-" + s.name;
 
-  if(s.status === "outside" && s.approval_status !== "logged_out"){
+  if(
+s.approval_status === "pending" ||
+(s.status === "outside" && s.approval_status !== "logged_out")
+){
     actionWrap.innerHTML =
       `<button onclick="approveStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#f59e0b;">Approve / Resume</button>
        <button onclick="rejectStudent('${String(s.name).replace(/'/g,"\\'")}')" style="background:#e43232;">Reject</button>`;
