@@ -345,7 +345,6 @@ def student_logout():
 
     return jsonify({"success": True})
 
-
 @app.route("/admin", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -510,8 +509,10 @@ def dashboard_data():
 
     for row in data:
         display_status = get_display_status(row)
-        if display_status == "active":
-            live_count += 1
+
+        # LIVE COUNT FIX (REAL ACTIVE STUDENTS)
+    if row["is_logged_in"] == 1 and row["status"] != "logged_out":
+        live_count += 1
 
         if row["status"] == "pending" and row["attendance_stopped"] == 1 and row["outside_alert_sent"] == 0:
             alerts.append(f'🚨 {row["name"]} is outside campus and needs permission')
