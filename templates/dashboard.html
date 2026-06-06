@@ -260,22 +260,22 @@ margin-top:10px;
 {{ student.name }}
 <span class="statusBadge">
 {% if student.approval_status == "logged_out" %}
-<span style="color:#ef2e2e;">● Logged Out</span>
+    <span style="color:#ef2e2e;">● Logged Out</span>
 
 {% elif student.approval_status == "rejected" %}
-<span style="color:#f12222;">● Rejected</span>
+    <span style="color:#f12222;">● Rejected</span>
 
 {% elif student.campus_status == "outside" %}
-<span style="color:#c43d2b;">● Out of Campus</span>
+    <span style="color:#c43d2b;">● Out of Campus</span>
 
 {% elif student.campus_status == "inside" and student.approval_status == "approved" %}
-<span style="color:#05ba47;">● Inside Campus</span>
+    <span style="color:#05ba47;">● Inside Campus</span>
 
 {% elif student.campus_status == "inside" and student.approval_status == "pending" %}
-<span style="color:#ca8714;">● Inside Campus</span>
+    <span style="color:#f59e0b;">● Inside Campus</span>
 
 {% else %}
-<span style="color:#e43232;">● Logged Out</span>
+    <span style="color:#e43232;">● Logged Out</span>
 {% endif %}
 </span>
 </h3>
